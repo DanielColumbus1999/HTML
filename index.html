@@ -1,16 +1,106 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Racing Game</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Music Visualizer</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: black;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
 </head>
 <body>
-    <div id="game-container">
-        <div id="car"></div>
-        <div id="road"></div>
-    </div>
-    <script src="game.js"></script>
+  <canvas id="visualizer"></canvas>
+  <input type="file" id="audioFile" accept="audio/*">
+  
+  <script>
+    const canvas = document.getElementById('visualizer');
+    const ctx = canvas.getContext('2d');
+    const audioFileInput = document.getElementById('audioFile');
+    let audioContext, analyser, sourceNode, audioElement, bufferSource;
+
+    // Set canvas size
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    // Event listener for file input
+    audioFileInput.addEventListener('change', (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          loadAudio(e.target.result);
+        };
+        reader.readAsArrayBuffer(file);
+      }
+    });
+
+    function loadAudio(fileBuffer) {
+      if (audioContext) {
+        audioContext.close();
+      }
+
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+
+      // Create a buffer source node
+      audioContext.decodeAudioData(fileBuffer, (buffer) => {
+        if (bufferSource) {
+          bufferSource.stop();
+        }
+
+        bufferSource = audioContext.createBufferSource();
+        bufferSource.buffer = buffer;
+        bufferSource.connect(analyser);
+        analyser.connect(audioContext.destination);
+        
+        bufferSource.start(0);
+        renderFrame();
+      });
+    }
+
+    function renderFrame() {
+      requestAnimationFrame(renderFrame);
+
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      analyser.getByteFrequencyData(dataArray);
+      
+      // Clear the canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const barWidth = (canvas.width / bufferLength) * 2.5;
+      let barHeight;
+      let x = 0;
+
+      // Render the bars
+      for (let i = 0; i < bufferLength; i++) {
+        barHeight = dataArray[i];
+
+        // Color the bars based on frequency
+        const r = barHeight + (25 * (i / bufferLength));
+        const g = 250 * (i / bufferLength);
+        const b = 50;
+
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+
+        ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+
+        x += barWidth + 1;
+      }
+    }
+  </script>
 </body>
 </html>
