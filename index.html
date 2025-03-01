@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Music Visualizer</title>
+  <title>Crazy Music Visualizer</title>
   <style>
     body {
       margin: 0;
@@ -14,93 +14,84 @@
       height: 100vh;
       background-color: black;
     }
+
     canvas {
-      display: block;
+      position: absolute;
+    }
+
+    audio {
+      display: none;
     }
   </style>
 </head>
 <body>
+
+  <!-- Audio Element -->
+  <audio id="audio" controls autoplay>
+    <source src="your-audio-file.mp3" type="audio/mp3">
+    Your browser does not support the audio element.
+  </audio>
+
+  <!-- Canvas for the Visualizer -->
   <canvas id="visualizer"></canvas>
-  <input type="file" id="audioFile" accept="audio/*">
-  
+
   <script>
     const canvas = document.getElementById('visualizer');
     const ctx = canvas.getContext('2d');
-    const audioFileInput = document.getElementById('audioFile');
-    let audioContext, analyser, sourceNode, audioElement, bufferSource;
+    const audio = document.getElementById('audio');
 
-    // Set canvas size
+    // Set the canvas size
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    // Event listener for file input
-    audioFileInput.addEventListener('change', (event) => {
-      const file = event.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-          loadAudio(e.target.result);
-        };
-        reader.readAsArrayBuffer(file);
-      }
-    });
+    // Set up the Web Audio API
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const analyser = audioContext.createAnalyser();
+    const source = audioContext.createMediaElementSource(audio);
+    source.connect(analyser);
+    analyser.connect(audioContext.destination);
+    
+    analyser.fftSize = 256; // Number of frequency bins
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
 
-    function loadAudio(fileBuffer) {
-      if (audioContext) {
-        audioContext.close();
-      }
-
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      analyser = audioContext.createAnalyser();
-      analyser.fftSize = 256;
-
-      // Create a buffer source node
-      audioContext.decodeAudioData(fileBuffer, (buffer) => {
-        if (bufferSource) {
-          bufferSource.stop();
-        }
-
-        bufferSource = audioContext.createBufferSource();
-        bufferSource.buffer = buffer;
-        bufferSource.connect(analyser);
-        analyser.connect(audioContext.destination);
-        
-        bufferSource.start(0);
-        renderFrame();
-      });
-    }
-
-    function renderFrame() {
-      requestAnimationFrame(renderFrame);
-
-      const bufferLength = analyser.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-
-      analyser.getByteFrequencyData(dataArray);
-      
-      // Clear the canvas
+    function animateVisualizer() {
+      // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+      // Get frequency data
+      analyser.getByteFrequencyData(dataArray);
+
+      // Loop through the frequency data and draw it
       const barWidth = (canvas.width / bufferLength) * 2.5;
-      let barHeight;
       let x = 0;
 
-      // Render the bars
       for (let i = 0; i < bufferLength; i++) {
-        barHeight = dataArray[i];
+        const barHeight = dataArray[i];
 
-        // Color the bars based on frequency
-        const r = barHeight + (25 * (i / bufferLength));
-        const g = 250 * (i / bufferLength);
-        const b = 50;
+        // Create a crazy visual effect (randomize bar colors and animation)
+        const r = Math.random() * 255;
+        const g = Math.random() * 255;
+        const b = Math.random() * 255;
+        const alpha = Math.random() * 0.5 + 0.5;
 
-        ctx.fillStyle = `rgb(${r},${g},${b})`;
-
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
         ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
 
-        x += barWidth + 1;
+        x += barWidth + 1; // Space between bars
       }
+
+      // Create some random movement effect
+      requestAnimationFrame(animateVisualizer);
     }
+
+    // Start visualizer once the audio starts
+    audio.onplay = function() {
+      audioContext.resume().then(() => {
+        animateVisualizer();
+      });
+    };
   </script>
+
 </body>
 </html>
